@@ -34,24 +34,6 @@ func serializeMetadataToJSON(data any) (string, uint64, error) {
 	return str, len, nil
 }
 
-type nopWriterCloser struct {
-	w io.Writer
-}
-
-// Close implements io.WriteCloser.
-func (n *nopWriterCloser) Close() error {
-	return nil
-}
-
-// Write implements io.WriteCloser.
-func (np *nopWriterCloser) Write(p []byte) (n int, err error) {
-	return np.w.Write(p)
-}
-
-func newNopWriterCloser(w io.Writer) io.WriteCloser {
-	return &nopWriterCloser{w}
-}
-
 func newBufferWriter() *bufferWriter {
 	return &bufferWriter{
 		b: &bytes.Buffer{},
@@ -76,4 +58,52 @@ func (bw *bufferWriter) pad(count uint64) {
 		n := i % len(db)
 		bw.wb(db[n])
 	}
+}
+
+type wrapReader struct {
+	r io.ReadSeeker
+}
+
+// Read implements io.ReadSeeker.
+func (w *wrapReader) Read(p []byte) (n int, err error) {
+	return w.r.Read(p)
+}
+
+// Seek implements io.ReadSeeker.
+func (w *wrapReader) Seek(offset int64, whence int) (int64, error) {
+	return w.r.Seek(offset, whence)
+}
+
+func (w *wrapReader) readN(n uint64) []byte {
+	chars := make([]byte, n)
+	io.ReadFull(w, chars)
+	return chars
+}
+
+func (w *wrapReader) u8() uint8 {
+	return readT[uint8](w)
+}
+
+func (w *wrapReader) u64() uint64 {
+	return readT[uint64](w)
+}
+
+func (w *wrapReader) readStr(n uint64) string {
+	b := w.readN(n)
+	return string(b)
+}
+
+func readT[T any](r io.Reader) T {
+	t := new(T)
+	binary.Read(r, binary.BigEndian, t)
+	return *t
+}
+
+func calculatePaddingLength(M uint64) uint64 {
+	padding := M / 16
+	padding = padding + 1
+	padding = 16 * padding
+	padding = padding - M
+	padding = padding % uint64(16)
+	return padding
 }

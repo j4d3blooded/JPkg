@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -8,6 +9,11 @@ import (
 )
 
 func main() {
+	main_write()
+	main_read()
+}
+
+func main_write() {
 	f, err := os.Create("output.dat")
 	if err != nil {
 		panic(err)
@@ -16,6 +22,10 @@ func main() {
 
 	p := jpkg.NewJPkgEncoder(f)
 	p.Name = "Test Package"
+
+	p.Metadata = FileInfo{
+		XYZ: "This is a test package metadata",
+	}
 
 	p.AddFile(jpkg.JPkgFileToEncode{
 		Source:     strings.NewReader("this is a test"),
@@ -42,4 +52,21 @@ func main() {
 
 type FileInfo struct {
 	XYZ string
+}
+
+func main_read() {
+	f, err := os.Open("output.dat")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	p, err := jpkg.NewJPkgDecoder[FileInfo](f, nil)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(p)
+
 }

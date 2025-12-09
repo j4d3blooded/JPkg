@@ -100,7 +100,7 @@ func (j *JPkgEncoder) Encode() error {
 }
 
 func (j *JPkgEncoder) writeHeader(o uint64) uint64 {
-	j.ws("jpkg") // Magic Number
+	j.wb([]byte("jpkg")) // Magic Number
 	o += 4
 
 	j.wb(uint64(1)) // Version
@@ -214,27 +214,22 @@ func (j *JPkgEncoder) writeBody(o uint64) (uint64, error) {
 	return o, nil
 }
 
-func (j *JPkgEncoder) wb(data any) {
-	binary.Write(j.w, binary.BigEndian, data)
+func (j *JPkgEncoder) wb(data any) error {
+	return binary.Write(j.w, binary.BigEndian, data)
 }
 
-func (j *JPkgEncoder) ws(data string) {
-	io.WriteString(j.w, data)
+func (j *JPkgEncoder) ws(data string) error {
+	_, err := io.WriteString(j.w, data)
+	return err
 }
 
-func (j *JPkgEncoder) pad(count uint64) {
+func (j *JPkgEncoder) pad(count uint64) error {
 	db := []byte{0xDE, 0xAD, 0xBE, 0xEF}
 	for i := range int(count) {
 		n := i % len(db)
-		j.wb(db[n])
+		if err := j.wb(db[n]); err != nil {
+			return err
+		}
 	}
-}
-
-func calculatePaddingLength(M uint64) uint64 {
-	padding := M / 16
-	padding = padding + 1
-	padding = 16 * padding
-	padding = padding - M
-	padding = padding % uint64(16)
-	return padding
+	return nil
 }
