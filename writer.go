@@ -7,15 +7,17 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
 )
 
 func NewJPkgEncoder(w io.Writer) *JPkgEncoder {
 	wr := &JPkgEncoder{
 		w:           w,
-		Encryption:  &NullEncryptionHandler{},
-		Compression: &NullCompressionHandler{},
-		Hasher:      &NullHasherHandler{},
-		Signer:      &NullCryptoHandler{},
+		Encryption:  &jpkg_impl.NullEncryptionHandler{},
+		Compression: &jpkg_impl.NullCompressionHandler{},
+		Hasher:      &jpkg_impl.NullHasherHandler{},
+		Signer:      &jpkg_impl.NullCryptoHandler{},
 		PackageTime: time.Now(),
 		Metadata:    nil,
 	}
@@ -26,10 +28,10 @@ type JPkgEncoder struct {
 	Name        string
 	Metadata    any
 	PackageTime time.Time
-	Encryption  EncryptionHandler
-	Compression CompressionHandler
-	Hasher      HasherHandler
-	Signer      CryptoHandler
+	Encryption  jpkg_impl.EncryptionHandler
+	Compression jpkg_impl.CompressionHandler
+	Hasher      jpkg_impl.HasherHandler
+	Signer      jpkg_impl.CryptoHandler
 	w           io.Writer
 	files       []jpkgFileRecord
 	offset      uint64

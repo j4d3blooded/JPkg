@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"io"
 	"os"
 	"strings"
 
@@ -20,19 +17,9 @@ func main() {
 	p := jpkg.NewJPkgEncoder(f)
 	p.Name = "Test Package"
 
-	aesKey := make([]byte, 32)
-	io.ReadFull(rand.Reader, aesKey)
-
-	println(hex.EncodeToString(aesKey))
-
-	// p.Compression = &jpkg.LZWCompressionHandler{}
-	p.Encryption = &jpkg.AESEncryptionHandler{
-		Key: aesKey,
-	}
-
 	p.AddFile(jpkg.JPkgFileToEncode{
 		Source:     strings.NewReader("this is a test"),
-		UUID:       jpkg.NewUUID(),
+		UUID:       jpkg.NewUUIDV4(),
 		Identifier: "test1",
 		Path:       "./test.txt",
 		Metadata:   nil,
@@ -40,7 +27,7 @@ func main() {
 
 	p.AddFile(jpkg.JPkgFileToEncode{
 		Source:     strings.NewReader("this is _NOT_ a test"),
-		UUID:       jpkg.NewUUID(),
+		UUID:       jpkg.NewUUIDV4(),
 		Identifier: "test2",
 		Path:       "./important.txt",
 		Metadata: FileInfo{

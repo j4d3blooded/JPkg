@@ -1,4 +1,4 @@
-package jpkg
+package jpkg_impl
 
 type HasherFlag uint8
 
