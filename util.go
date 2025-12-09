@@ -145,3 +145,21 @@ func serializeMetadataToJSON(data any) (string, uint64, error) {
 	len := uint64(len(str))
 	return str, len, nil
 }
+
+type nopWriterCloser struct {
+	w io.Writer
+}
+
+// Close implements io.WriteCloser.
+func (n *nopWriterCloser) Close() error {
+	return nil
+}
+
+// Write implements io.WriteCloser.
+func (np *nopWriterCloser) Write(p []byte) (n int, err error) {
+	return np.w.Write(p)
+}
+
+func newNopWriterCloser(w io.Writer) io.WriteCloser {
+	return &nopWriterCloser{w}
+}

@@ -62,10 +62,10 @@ Compressed and encrypted package manifest.
 
 | Size (Bytes)|                           Description|       Extra|
 |-------------|--------------------------------------|------------|
-|           16|                               UUID v4|        UUID|
 |            8|                      Next File Offset|    Absolute|
 |            8|                File Identifier Length|          FI|
 |            8|                      File Path Length|          FP|
+|           16|                               UUID v4|        UUID|
 |            8|                  File Metadata Length|          FM|
 |            8|             File Compressed Data Size|          CD|
 |            8|           File Uncompressed Data Size|          UD|
