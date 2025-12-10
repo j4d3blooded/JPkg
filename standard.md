@@ -2,8 +2,6 @@
 
 ## File Header
 
-File header is uncompressed and unencrypted. After writing the header, compression and encryption are then applied (data is compressed and then encrypted and then written).
-
 | Size (Bytes)|           Description|  Extra|
 |-------------|----------------------|-------|
 |            4|          Magic Number| "jpkg"|
@@ -42,38 +40,28 @@ File header is uncompressed and unencrypted. After writing the header, compressi
 
 Compressed and encrypted package manifest.
 
-| Size (Bytes)|                           Description|       Extra|
-|-------------|--------------------------------------|------------|
-|            8|               Unix Timestamp, seconds|            |
-|            8|                            File Count|           M|
-|            8|                   Package Name Length|           P|
-|            8|               Package Metadata Length|           N|
-|            P|                          Package Name|       ascii|
-|            N|                      Package Metadata|json,  ascii|
-|            -|        Padding to next multiple of 16|            |
-|           16|                               Padding|            |
+| Size (Bytes)|                           Description|             Extra|
+|-------------|--------------------------------------|------------------|
+|            8|               Unix Timestamp, seconds|                  |
+|            8|                            File Count|                 M|
+|            -|                     Package Name Name|      UTF-8, sized|
+|            -|                      Package Metadata|json, UTF-8, sized|
 
 ## Package Body
 
 1.  M File Records (See below)
-2. 16 byte padding
 
 ### File Records
 
-| Size (Bytes)|                           Description|       Extra|
-|-------------|--------------------------------------|------------|
-|            8|                      Next File Offset|    Absolute|
-|            8|                File Identifier Length|          FI|
-|            8|                      File Path Length|          FP|
-|           16|                               UUID v4|        UUID|
-|            8|                  File Metadata Length|          FM|
-|            8|             File Compressed Data Size|          CD|
-|            8|           File Uncompressed Data Size|          UD|
-|           FI|                       File Identifier|       ascii|
-|           FP|                             File Path|       ascii|
-|           FM|                         File Metadata| json, ascii|
-|           CD|                  File Compressed Data|            |
-|            -|        Padding to next multiple of 16|            |
+| Size (Bytes)|                           Description|             Extra|
+|-------------|--------------------------------------|------------------|
+|            -|                       File Identifier|      UTF-8, sized|
+|            -|                             File Path|      UTF-8, sized|
+|           16|                               UUID v4|              UUID|
+|            -|                         File Metadata|json, UTF-8, sized|
+|            8|             File Compressed Data Size|                CD|
+|            8|           File Uncompressed Data Size|                UD|
+|           CD|                  File Compressed Data|                  |
 
 
 ## Package Footer

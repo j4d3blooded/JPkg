@@ -2,7 +2,7 @@ package jpkg
 
 import (
 	"bytes"
-	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	jpkg_bin "github.com/j4d3blooded/jpkg/bin"
 	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
 )
 
@@ -48,14 +49,11 @@ type JPkgFileToEncode struct {
 }
 
 type jpkgFileRecord struct {
-	source           io.Reader
-	uuid             UUID
-	identifier       string
-	identifierLength uint64
-	metadataJson     string
-	metadataLength   uint64
-	path             string
-	pathLength       uint64
+	source       io.Reader
+	identifier   string
+	path         string
+	uuid         UUID
+	metadataJson string
 }
 
 func (j *JPkgEncoder) AddFile(file JPkgFileToEncode) error {
@@ -64,7 +62,7 @@ func (j *JPkgEncoder) AddFile(file JPkgFileToEncode) error {
 		return errors.New("file has no source")
 	}
 
-	json, jsonSize, err := serializeMetadataToJSON(file.Metadata)
+	json, err := serializeMetadataToJSON(file.Metadata)
 	if err != nil {
 		return fmt.Errorf("error serializing json metadata: %w", err)
 	}
@@ -77,15 +75,18 @@ func (j *JPkgEncoder) AddFile(file JPkgFileToEncode) error {
 
 	file.Path = filepath.Clean(file.Path)
 
+	for _, existingFile := range j.files {
+		if existingFile.path == file.Path {
+			return errors.New("path is already in use")
+		}
+	}
+
 	nf := jpkgFileRecord{
-		source:           file.Source,
-		uuid:             file.UUID,
-		identifier:       file.Identifier,
-		identifierLength: uint64(len(file.Identifier)),
-		metadataJson:     json,
-		metadataLength:   jsonSize,
-		path:             file.Path,
-		pathLength:       uint64(len(file.Path)),
+		source:       file.Source,
+		uuid:         file.UUID,
+		identifier:   file.Identifier,
+		metadataJson: json,
+		path:         file.Path,
 	}
 
 	j.files = append(j.files, nf)
@@ -94,152 +95,86 @@ func (j *JPkgEncoder) AddFile(file JPkgFileToEncode) error {
 }
 
 func (j *JPkgEncoder) Encode() error {
-
-	o := uint64(0)
-	o = j.writeHeader(o)
-	o, err := j.writeManifest(o)
-	if err != nil {
-		return fmt.Errorf("error writing package manifest: %w", err)
+	if err := j.writeHeader(); err != nil {
+		return fmt.Errorf("error writing header: %w", err)
 	}
-	o, err = j.writeBody(o)
-	if err != nil {
-		return fmt.Errorf("error writing package body: %w", err)
+
+	if err := j.writeManifest(); err != nil {
+		return fmt.Errorf("error writing manifest: %w", err)
+	}
+
+	if err := j.writeFileRecords(); err != nil {
+		return fmt.Errorf("error writing file records: %w", err)
 	}
 
 	return nil
 }
 
-func (j *JPkgEncoder) writeHeader(o uint64) uint64 {
-	j.wb([]byte("jpkg")) // Magic Number
-	o += 4
+func (j *JPkgEncoder) writeHeader() error {
+	header := JPkgHeader{
+		MagicNumber:     MAGIC_NUMBER,
+		Version:         0,
+		CompressionFlag: j.Compression.Flag(),
+		EncryptionFlag:  j.Encryption.Flag(),
+		HasherFlag:      j.Hasher.Flag(),
+		SignatureFlag:   j.Signer.Flag(),
+	}
 
-	j.wb(uint64(1)) // Version
-	o += 8
-
-	j.wb(j.Compression.Flag()) // Compression Flag
-	j.wb(j.Encryption.Flag())  // Encryption Flag
-	j.wb(j.Hasher.Flag())      // Hash Flag
-	j.wb(j.Signer.Flag())      // Crypto Flag
-	o += 4                     // flags
-
-	j.pad(16) // Padding
-	o += 16
-
-	return o
+	return jpkg_bin.BinaryWrite(j.w, header)
 }
 
-func (j *JPkgEncoder) writeManifest(o uint64) (uint64, error) {
-	j.wb(j.PackageTime.Unix()) // Timestamp
-	o += 8
+func (j *JPkgEncoder) writeManifest() error {
 
-	j.wb(uint64(len(j.files))) // File Count
-	o += 8
-
-	j.wb(uint64(len(j.Name))) // Package Name Length
-	o += 8
-
-	json, jsonLen, err := serializeMetadataToJSON(j.Metadata)
+	metadataJson, err := json.Marshal(j.Metadata)
 	if err != nil {
-		return o, fmt.Errorf("error serializing metadata: %w", err)
+		return fmt.Errorf("error converting package metadata to json: %w", err)
 	}
 
-	j.wb(jsonLen) // Package Metadata Length
-	o += 8
+	manifest := JPkgManifest{
+		PackagedAt:          j.PackageTime.Unix(),
+		FileCount:           uint64(len(j.files)),
+		PackageName:         j.Name,
+		PackageMetadataJSON: string(metadataJson),
+	}
 
-	j.ws(j.Name) // Package Name
-	o += uint64(len(j.Name))
+	if err := jpkg_bin.BinaryWrite(j.w, manifest); err != nil {
+		return fmt.Errorf("error writing package manifest: %w", err)
+	}
 
-	j.ws(json) // Package Metadata
-	o += jsonLen
-
-	padding := calculatePaddingLength(o) // Pad 16
-	j.pad(padding)
-	o += padding
-
-	j.pad(16) // Padding
-	o += 16
-
-	return o, nil
+	return nil
 }
 
-func (j *JPkgEncoder) writeBody(o uint64) (uint64, error) {
-
+func (j *JPkgEncoder) writeFileRecords() error {
 	for _, file := range j.files {
-		compressed := &bytes.Buffer{}
-		compressor := j.Compression.Compress(compressed)
+		compressed := bytes.Buffer{}
+		compressor := j.Compression.Compress(&compressed)
 		uncompressedSize, err := io.Copy(compressor, file.source)
-
 		if err != nil {
-			return o, fmt.Errorf("error compressing file %v: %w", file.path, err)
+			return fmt.Errorf("error compressing file (%v/%v/%v): %w", file.path, file.identifier, file.uuid, err)
 		}
 
-		if err := compressor.Close(); err != nil {
-			return o, fmt.Errorf("error finalizing compression for file %v: %w", file.path, err)
+		encrypted := bytes.Buffer{}
+		encryptor, err := j.Encryption.Encrypt(&encrypted)
+		if _, err := io.Copy(encryptor, &compressed); err != nil {
+			return fmt.Errorf("error encrypting file (%v/%v/%v): %w", file.path, file.identifier, file.uuid, err)
 		}
 
-		encrypted := &bytes.Buffer{}
-		encryptor, err := j.Encryption.Encrypt(encrypted)
-		if err != nil {
-			return o, fmt.Errorf("error creating encryptor: %w", err)
+		record := JPkgFileRecord{
+			JPkgFileRecordWithoutData: JPkgFileRecordWithoutData{
+				FileIdentifier:       file.identifier,
+				FilePath:             file.path,
+				UUID:                 file.uuid,
+				FileMetadataJSON:     file.metadataJson,
+				CompressedDataSize:   uint64(encrypted.Len()),
+				UncompressedDataSize: uint64(uncompressedSize),
+			},
+			CompressedData: encrypted.Bytes(),
 		}
 
-		if _, err := compressed.WriteTo(encryptor); err != nil {
-			return o, fmt.Errorf("error encrypting file %v: %w", file.path, err)
+		if err := jpkg_bin.BinaryWrite(j.w, record); err != nil {
+			return fmt.Errorf("error writing file (%v/%v/%v): %w", file.path, file.identifier, file.uuid, err)
 		}
-		if err := encryptor.Close(); err != nil {
-			return o, fmt.Errorf("error finalizing encryption for file %v: %w", file.path, err)
-		}
-
-		compressedSize := uint64(encrypted.Len())
-
-		fw := newBufferWriter()
-
-		fw.wb(file.identifierLength) // identifier length
-		fw.wb(file.pathLength)       // path length
-		fw.wb(file.uuid)             // uuid
-		fw.wb(file.metadataLength)   // metadata length
-		fw.wb(compressedSize)        // compressed data size
-		fw.wb(uncompressedSize)      // uncompressed data size
-		fw.ws(file.identifier)       // identifier
-		fw.ws(file.path)             // path
-		fw.ws(file.metadataJson)     // metadata json
-		fw.b.ReadFrom(encrypted)     // compressed data
-
-		blockSize := fw.b.Len()
-		blockSize += 8
-
-		o += uint64(blockSize)
-
-		padding := calculatePaddingLength(o)
-		fw.pad(padding)
-		o += padding
-		j.wb(o)
-
-		fw.b.WriteTo(j.w)
 	}
 
-	j.pad(16)
-	o += 16
-
-	return o, nil
-}
-
-func (j *JPkgEncoder) wb(data any) error {
-	return binary.Write(j.w, binary.BigEndian, data)
-}
-
-func (j *JPkgEncoder) ws(data string) error {
-	_, err := io.WriteString(j.w, data)
-	return err
-}
-
-func (j *JPkgEncoder) pad(count uint64) error {
-	db := []byte{0xDE, 0xAD, 0xBE, 0xEF}
-	for i := range int(count) {
-		n := i % len(db)
-		if err := j.wb(db[n]); err != nil {
-			return err
-		}
-	}
 	return nil
 }
