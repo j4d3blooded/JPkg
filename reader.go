@@ -19,7 +19,14 @@ func ReadJPkg(r io.ReadSeeker, encKey []byte) (*JPkg, error) {
 		return nil, fmt.Errorf("error reading manifest: %w", err)
 	}
 
-	return &JPkg{Header: *header, Manifest: *manifest}, nil
+	files, err := parseFiles(r, manifest.FileCount)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file records: %w", err)
+	}
+
+	buildFS(files)
+
+	return &JPkg{Header: *header, Manifest: *manifest, FileRecords: files}, nil
 }
 
 func parseHeader(r io.ReadSeeker) (*JPkgHeader, error) {
@@ -48,4 +55,36 @@ func parseManifest(r io.ReadSeeker) (*JPkgManifest, error) {
 	}
 
 	return header, nil
+}
+
+func parseFiles(r io.ReadSeeker, fileCount uint64) ([]JPkgFileRecordWithOffset, error) {
+	files := make([]JPkgFileRecordWithOffset, fileCount)
+
+	for i := range fileCount {
+		record, err := jpkg_bin.BinaryRead[JPkgFileRecordWithoutData](r)
+		if err != nil {
+			return nil, fmt.Errorf("error reading file record %v: %w", i, err)
+		}
+
+		offset, err := r.Seek(0, io.SeekCurrent)
+		if err != nil {
+			return nil, fmt.Errorf("error seeking in file: %w", err)
+		}
+
+		_, err = r.Seek(int64(record.CompressedDataSize), io.SeekCurrent)
+		if err != nil {
+			return nil, fmt.Errorf("error seeking in file: %w", err)
+		}
+
+		files[i] = JPkgFileRecordWithOffset{
+			JPkgFileRecordWithoutData: *record,
+			Offset:                    uint64(offset),
+		}
+	}
+
+	return files, nil
+}
+
+func buildFS(files []JPkgFileRecordWithOffset) {
+	panic("unimplemented")
 }

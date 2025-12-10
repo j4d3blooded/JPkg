@@ -27,7 +27,11 @@ func BinaryWrite(w io.Writer, data any) error {
 		value := field.Interface()
 
 		if field.Kind() == reflect.Struct { // handle embeded structs
-			return errors.New("struct fields are not supported")
+			if err := BinaryWrite(w, value); err != nil {
+				return fmt.Errorf("error writing struct field %v: %w", fI, err)
+			}
+
+			continue
 		}
 
 		if field.Kind() == reflect.String { // write string as sized utf8

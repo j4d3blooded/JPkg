@@ -34,11 +34,13 @@ type JPkgFileRecord struct {
 	CompressedData []byte
 }
 
-type JPkgFooter struct{}
+type JPkgFileRecordWithOffset struct {
+	JPkgFileRecordWithoutData
+	Offset uint64
+}
 
 type JPkg struct {
 	Header      JPkgHeader
 	Manifest    JPkgManifest
-	FileRecords []JPkgFileRecord
-	Footer      JPkgFooter
+	FileRecords []JPkgFileRecordWithOffset
 }
