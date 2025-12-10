@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 	"time"
 
 	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
@@ -66,6 +68,14 @@ func (j *JPkgEncoder) AddFile(file JPkgFileToEncode) error {
 	if err != nil {
 		return fmt.Errorf("error serializing json metadata: %w", err)
 	}
+
+	file.Path = strings.TrimPrefix(file.Path, ".")
+
+	if !strings.HasPrefix(file.Path, "/") {
+		file.Path = "/" + file.Path
+	}
+
+	file.Path = filepath.Clean(file.Path)
 
 	nf := jpkgFileRecord{
 		source:           file.Source,

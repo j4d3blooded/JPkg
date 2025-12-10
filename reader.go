@@ -1,10 +1,10 @@
 package jpkg
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"io/fs"
+	"strings"
 	"time"
 
 	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
@@ -13,42 +13,20 @@ import (
 func NewJPkgDecoder[T any](r io.ReadSeeker, encKey []byte) (*JPkgDecoder[T], error) {
 	rr := &wrapReader{r}
 
-	if s := rr.readStr(4); s != "jpkg" {
-		return nil, errors.New("invalid magic number")
+	compression, encryption, hash, signature, err := parseHeader(rr, encKey)
+	if err != nil {
+		return nil, err
 	}
-
-	if version := rr.u64(); version != 1 {
-		return nil, errors.New("unsupported version")
+	pkgTime, fileCount, pkgName, pkgMetadata, offset, err := parseManifest[T](rr)
+	if err != nil {
+		return nil, err
 	}
-
-	compression := jpkg_impl.GetCompressionHandler(jpkg_impl.CompressionFlag(rr.u8()))
-	encryption := jpkg_impl.GetEncryptionHandler(jpkg_impl.EncryptionFlag(rr.u8()), encKey)
-	hash := jpkg_impl.GetHashHandler(jpkg_impl.HasherFlag(rr.u8()))
-	signature := jpkg_impl.GetCryptoHandler(jpkg_impl.CryptoFlag(rr.u8()))
-
-	rr.readN(16)
-	pkgTime := time.Unix(int64(rr.u64()), 0)
-
-	fileCount := rr.u64()
-
-	pkgNameLength := rr.u64()
-	pkgMetadataLength := rr.u64()
-
-	pkgName := rr.readStr(pkgNameLength)
-	pkgMetadataJson := rr.readStr(pkgMetadataLength)
-
-	pkgMetadata := new(T)
-	if err := json.Unmarshal([]byte(pkgMetadataJson), pkgMetadata); err != nil {
-		return nil, fmt.Errorf("error parsing package metadata: %w", err)
-	}
-
-	offset := 0x20 + 0x20 + pkgNameLength + pkgMetadataLength + calculatePaddingLength(pkgNameLength+pkgMetadataLength) + 0x10
 
 	rr.Seek(int64(offset), io.SeekStart)
 
-	files := readFiles(fileCount, rr, offset)
+	files := parseFileRecords(fileCount, rr, offset)
 
-	return &JPkgDecoder[T]{
+	return &JPkgDecoder{
 		pkgName,
 		compression,
 		encryption,
@@ -62,7 +40,67 @@ func NewJPkgDecoder[T any](r io.ReadSeeker, encKey []byte) (*JPkgDecoder[T], err
 	}, nil
 }
 
-func readFiles(fileCount uint64, rr *wrapReader, nextOffset uint64) []fileReadInfo {
+type JPkgDecoder struct {
+	Name        string
+	Compression jpkg_impl.CompressionHandler
+	Encryption  jpkg_impl.EncryptionHandler
+	Hasher      jpkg_impl.HasherHandler
+	Crypto      jpkg_impl.CryptoHandler
+	Metadata    []byte // json byte array
+	FileCount   uint64
+	PackageTime time.Time
+	r           *wrapReader
+	files       []fileReadInfo
+}
+
+type fileReadInfo struct {
+	dataOffset  uint64
+	dataSize    uint64
+	decompSize  uint64
+	identifier  string
+	uuid        UUID
+	path        string
+	metadataStr string
+}
+
+func parseHeader(rr *wrapReader, encKey []byte) (jpkg_impl.CompressionHandler, jpkg_impl.EncryptionHandler, jpkg_impl.HasherHandler, jpkg_impl.CryptoHandler, error) {
+	if s := rr.readStr(4); s != "jpkg" {
+		return nil, nil, nil, nil, errors.New("invalid magic number")
+	}
+
+	if version := rr.u64(); version != 1 {
+		return nil, nil, nil, nil, errors.New("unsupported version")
+	}
+
+	compression := jpkg_impl.GetCompressionHandler(jpkg_impl.CompressionFlag(rr.u8()))
+	encryption := jpkg_impl.GetEncryptionHandler(jpkg_impl.EncryptionFlag(rr.u8()), encKey)
+	hash := jpkg_impl.GetHashHandler(jpkg_impl.HasherFlag(rr.u8()))
+	signature := jpkg_impl.GetCryptoHandler(jpkg_impl.CryptoFlag(rr.u8()))
+
+	rr.readN(16)
+	return compression, encryption, hash, signature, nil
+}
+
+func parseManifest(rr *wrapReader) (time.Time, uint64, string, []byte, uint64, error) {
+	pkgTime := time.Unix(int64(rr.u64()), 0)
+
+	fileCount := rr.u64()
+
+	pkgNameLength := rr.u64()
+	pkgMetadataLength := rr.u64()
+
+	pkgName := rr.readStr(pkgNameLength)
+	pkgMetadataJson := rr.readStr(pkgMetadataLength)
+
+	offset := uint64(0x20 + 0x20)
+	offset += pkgNameLength + pkgMetadataLength
+	offset += calculatePaddingLength(pkgNameLength + pkgMetadataLength)
+	offset += 0x10
+
+	return pkgTime, fileCount, pkgName, []byte(pkgMetadataJson), offset, nil
+}
+
+func parseFileRecords(fileCount uint64, rr *wrapReader, nextOffset uint64) []fileReadInfo {
 	files := []fileReadInfo{}
 
 	for range fileCount {
@@ -96,25 +134,22 @@ func readFiles(fileCount uint64, rr *wrapReader, nextOffset uint64) []fileReadIn
 	return files
 }
 
-type JPkgDecoder[T any] struct {
-	Name        string
-	Compression jpkg_impl.CompressionHandler
-	Encryption  jpkg_impl.EncryptionHandler
-	Hasher      jpkg_impl.HasherHandler
-	Crypto      jpkg_impl.CryptoHandler
-	Metadata    T
-	FileCount   uint64
-	PackageTime time.Time
-	r           *wrapReader
-	files       []fileReadInfo
+// Open implements fs.FS.
+func (j *JPkgDecoder) Open(name string) (fs.File, error) {
+	panic("unimplemented")
 }
 
-type fileReadInfo struct {
-	dataOffset  uint64
-	dataSize    uint64
-	decompSize  uint64
-	identifier  string
-	uuid        UUID
-	path        string
-	metadataStr string
+func buildFSTree(records []jpkgFileRecord) fsTree {
+
+	root := JPkgFSDirectory{path: "/"}
+
+	for _, file := range records {
+		current := &root
+		segments := strings.Split(file.path, "\\\\")
+		for _, segment := range segments[:len(segments)-1] {
+
+		}
+	}
+
+	return root
 }

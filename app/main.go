@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 
@@ -45,6 +46,26 @@ func main_write() {
 		},
 	})
 
+	p.AddFile(jpkg.JPkgFileToEncode{
+		Source:     strings.NewReader("this is _NOT_ a test"),
+		UUID:       jpkg.NewUUIDV4(),
+		Identifier: "test2",
+		Path:       "./f2/important.txt",
+		Metadata: FileInfo{
+			XYZ: "Additional Information",
+		},
+	})
+
+	p.AddFile(jpkg.JPkgFileToEncode{
+		Source:     strings.NewReader("this is _NOT_ a test"),
+		UUID:       jpkg.NewUUIDV4(),
+		Identifier: "test2",
+		Path:       "./f2/important_2.txt",
+		Metadata: FileInfo{
+			XYZ: "Additional Information",
+		},
+	})
+
 	if err := p.Encode(); err != nil {
 		panic(err)
 	}
@@ -67,6 +88,13 @@ func main_read() {
 		panic(err)
 	}
 
-	fmt.Println(p)
+	fs.WalkDir(
+		p,
+		".",
+		func(path string, d fs.DirEntry, err error) error {
+			fmt.Println(path)
+			return nil
+		},
+	)
 
 }
