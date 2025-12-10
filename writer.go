@@ -146,20 +146,28 @@ func (j *JPkgEncoder) writeManifest() error {
 
 func (j *JPkgEncoder) writeFileRecords() error {
 	for _, file := range j.files {
-		compressed := bytes.Buffer{}
-		compressor := j.Compression.Compress(&compressed)
-		uncompressedSize, err := io.Copy(compressor, file.source)
+
+		uncompressedBytes, err := io.ReadAll(file.source)
+		if err != nil {
+			return fmt.Errorf("error reading file (%v/%v/%v): %w", file.path, file.identifier, file.uuid, err)
+		}
+
+		uncompressedSize := len(uncompressedBytes)
+		compressed, err := j.Compression.Compress(uncompressedBytes)
 		if err != nil {
 			return fmt.Errorf("error compressing file (%v/%v/%v): %w", file.path, file.identifier, file.uuid, err)
 		}
 
 		encrypted := bytes.Buffer{}
 		encryptor, err := j.Encryption.Encrypt(&encrypted)
-		if _, err := io.Copy(encryptor, &compressed); err != nil {
+		if err != nil {
+			return fmt.Errorf("error creating encryptor: %w", err)
+		}
+		if _, err := encryptor.Write(compressed); err != nil {
 			return fmt.Errorf("error encrypting file (%v/%v/%v): %w", file.path, file.identifier, file.uuid, err)
 		}
 
-		record := JPkgFileRecord{
+		record := _JPkgFileRecord{
 			JPkgFileRecordWithoutData: JPkgFileRecordWithoutData{
 				FileIdentifier:       file.identifier,
 				FilePath:             file.path,

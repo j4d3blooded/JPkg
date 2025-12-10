@@ -2,7 +2,6 @@ package jpkg
 
 import (
 	"crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,21 +29,6 @@ func serializeMetadataToJSON(data any) (string, error) {
 
 	str := string(metadataJsonBytes)
 	return str, nil
-}
-
-func readT[T any](r io.Reader) T {
-	t := new(T)
-	binary.Read(r, binary.BigEndian, t)
-	return *t
-}
-
-func calculatePaddingLength(M uint64) uint64 {
-	padding := M / 16
-	padding = padding + 1
-	padding = 16 * padding
-	padding = padding - M
-	padding = padding % uint64(16)
-	return padding
 }
 
 const MAGIC_NUMBER = uint32(0x6A706B67)

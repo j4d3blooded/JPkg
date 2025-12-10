@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 
@@ -80,10 +82,18 @@ func main_read() {
 	}
 	defer f.Close()
 
-	_, err = jpkg.ReadJPkg(f, nil)
+	pkg, err := jpkg.ReadJPkg(f, nil)
 
 	if err != nil {
 		panic(err)
 	}
+
+	fs.WalkDir(
+		pkg, ".",
+		func(path string, d fs.DirEntry, err error) error {
+			fmt.Println(path)
+			return nil
+		},
+	)
 
 }

@@ -1,7 +1,9 @@
 package jpkg_impl
 
 import (
+	"bytes"
 	"compress/lzw"
+	"fmt"
 	"io"
 )
 
@@ -14,8 +16,8 @@ const (
 
 type CompressionHandler interface {
 	Flag() CompressionFlag
-	Decompress(r io.Reader) io.Reader
-	Compress(output io.Writer) io.WriteCloser
+	Decompress(compressed []byte) ([]byte, error)
+	Compress(uncompressed []byte) ([]byte, error)
 }
 
 type NullCompressionHandler struct {
@@ -26,15 +28,12 @@ func (n *NullCompressionHandler) Flag() CompressionFlag {
 	return COMPRESSION_NONE
 }
 
-func (n *NullCompressionHandler) Decompress(r io.Reader) io.Reader {
-	return nil
+func (n *NullCompressionHandler) Decompress(compressed []byte) ([]byte, error) {
+	return compressed, nil
 }
 
-func (n *NullCompressionHandler) Compress(output io.Writer) io.WriteCloser {
-	if wc, isWC := output.(io.WriteCloser); isWC {
-		return wc
-	}
-	return newNopWriterCloser(output)
+func (n *NullCompressionHandler) Compress(uncompressed []byte) ([]byte, error) {
+	return uncompressed, nil
 }
 
 type LZWCompressionHandler struct {
@@ -45,10 +44,22 @@ func (n *LZWCompressionHandler) Flag() CompressionFlag {
 	return COMPRESSION_LZW
 }
 
-func (n *LZWCompressionHandler) Decompress(r io.Reader) io.Reader {
-	return nil
+func (n *LZWCompressionHandler) Decompress(compressed []byte) ([]byte, error) {
+	output := bytes.NewBuffer(compressed)
+	reader := lzw.NewReader(output, lzw.LSB, 8)
+	b, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("error during lzw decompression: %w", err)
+	}
+	return b, nil
 }
 
-func (n *LZWCompressionHandler) Compress(output io.Writer) io.WriteCloser {
-	return lzw.NewWriter(output, lzw.LSB, 8)
+func (n *LZWCompressionHandler) Compress(uncompressed []byte) ([]byte, error) {
+	output := &bytes.Buffer{}
+	writer := lzw.NewWriter(output, lzw.LSB, 8)
+	_, err := writer.Write(uncompressed)
+	if err != nil {
+		return nil, fmt.Errorf("error during lzw compression: %w", err)
+	}
+	return output.Bytes(), nil
 }
