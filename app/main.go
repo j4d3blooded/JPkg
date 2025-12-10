@@ -91,9 +91,16 @@ func main_read() {
 	fs.WalkDir(
 		pkg, ".",
 		func(path string, d fs.DirEntry, err error) error {
-			fmt.Println(path)
+
+			if d.IsDir() {
+				fmt.Println(path)
+				return nil
+			}
+
+			info, _ := d.Info()
+			fmt.Printf("%v: %v\n", d.Name(), info.Size())
+
 			return nil
 		},
 	)
-
 }

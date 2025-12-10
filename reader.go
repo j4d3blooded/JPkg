@@ -39,7 +39,7 @@ func ReadJPkg(r io.ReadSeeker, encryptionKey []byte) (*JPkg, error) {
 		metadata:       []byte(manifest.PackageMetadataJSON),
 	}
 
-	fileOpeners, directoryOpeners, err := buildFS(files, pkg)
+	fileOpeners, directoryOpeners, err := buildFS(files)
 	if err != nil {
 		return nil, fmt.Errorf("error building file system: %w", err)
 	}
@@ -106,9 +106,7 @@ func parseFiles(r io.ReadSeeker, fileCount uint64) ([]JPkgFileRecordWithOffset, 
 	return files, nil
 }
 
-func buildFS(files []JPkgFileRecordWithOffset, pkg *JPkg) (
-	map[string]jpkgFileOpenerInfo, map[string]jpkgDirOpenerInfo, error,
-) {
+func buildFS(files []JPkgFileRecordWithOffset) (map[string]jpkgFileOpenerInfo, map[string]jpkgDirOpenerInfo, error) {
 	paths := map[string]JPkgFileRecordWithOffset{}
 
 	for _, file := range files {

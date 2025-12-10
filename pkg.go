@@ -61,6 +61,8 @@ type JPkg struct {
 
 func (j *JPkg) Open(name string) (fs.File, error) {
 
+	name = normalizeFilePath(name)
+
 	if fileInfo, isFile := j.pathsToFiles[name]; isFile {
 		_, err := j.reader.Seek(fileInfo.offset, io.SeekStart)
 		if err != nil {
@@ -108,9 +110,12 @@ func (j *JPkg) Open(name string) (fs.File, error) {
 }
 
 func (j *JPkg) ReadDir(name string) ([]fs.DirEntry, error) {
+
+	name = normalizeFilePath(name)
+
 	dirInfo, isDir := j.pathsToDirectories[name]
 
-	if isDir {
+	if !isDir {
 		return nil, fs.ErrNotExist
 	}
 

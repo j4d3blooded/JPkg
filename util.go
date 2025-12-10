@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 )
 
 type UUID [16]byte
@@ -38,4 +40,15 @@ func min(a, b int) int {
 		return b
 	}
 	return a
+}
+
+func normalizeFilePath(name string) string {
+	name = strings.TrimPrefix(name, ".")
+
+	if !strings.HasPrefix(name, "/") {
+		name = "/" + name
+	}
+
+	name = filepath.Clean(name)
+	return name
 }
