@@ -96,7 +96,12 @@ func (j *JPkg) Open(name string) (fs.File, error) {
 	}
 
 	if dirInfo, isDir := j.pathsToDirectories[name]; isDir {
-		return &JPkgDir{}, nil
+		return &JPkgDir{
+			pkg:    j,
+			name:   dirInfo.name,
+			path:   dirInfo.path,
+			dirIdx: 0,
+		}, nil
 	}
 
 	return nil, fs.ErrNotExist
@@ -109,12 +114,31 @@ func (j *JPkg) ReadDir(name string) ([]fs.DirEntry, error) {
 		return nil, fs.ErrNotExist
 	}
 
-	entries := make([]JPkgDirInfo, dirInfo.Children)
+	entries := make([]fs.DirEntry, len(dirInfo.ChildPaths))
 
-	for i, child := range v {
-
+	for i, child := range dirInfo.ChildPaths {
+		if dirInfo, isDir := j.pathsToDirectories[child]; isDir {
+			entries[i] = &JPkgDirInfo{
+				pkg:   j,
+				path:  child,
+				name:  dirInfo.name,
+				size:  0,
+				isDir: true,
+			}
+		} else if fileInfo, isFile := j.pathsToFiles[child]; isFile {
+			entries[i] = &JPkgDirInfo{
+				pkg:   j,
+				path:  child,
+				name:  fileInfo.name,
+				size:  int64(fileInfo.uncompressedSize),
+				isDir: false,
+			}
+		} else {
+			panic(fmt.Errorf("child is not real? %v", child))
+		}
 	}
 
+	return entries, nil
 }
 
 func (j *JPkg) GetName() string {

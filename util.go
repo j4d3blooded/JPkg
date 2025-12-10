@@ -32,3 +32,10 @@ func serializeMetadataToJSON(data any) (string, error) {
 }
 
 const MAGIC_NUMBER = uint32(0x6A706B67)
+
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}

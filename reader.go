@@ -190,7 +190,17 @@ func buildFS(files []JPkgFileRecordWithOffset, pkg *JPkg) (
 	for path, node := range pathToNode {
 		switch f := node.(type) {
 		case *jpkg_fs.JPkgFSDirectory:
-			dirs[path] = jpkgDirOpenerInfo{}
+
+			childPaths := make([]string, len(f.Children))
+			for i, v := range f.Children {
+				childPaths[i] = jpkg_fs.GetFullPath(v)
+			}
+
+			dirs[path] = jpkgDirOpenerInfo{
+				name:       f.Name,
+				path:       jpkg_fs.GetFullPath(f),
+				ChildPaths: childPaths,
+			}
 
 		case *jpkg_fs.JPkgFSFile:
 			fils[path] = jpkgFileOpenerInfo{

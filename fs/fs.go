@@ -47,13 +47,15 @@ func (j *JPkgFSFile) GetParent() *JPkgFSDirectory {
 func (j *JPkgFSFile) isNode() {}
 
 func GetFullPath(node JPkgFSNode) string {
-	segments := []string{node.GetName()}
-	a := node.GetParent()
+	segments := []string{}
+
 	for {
-		segments = append(segments, a.Name)
-		if a == nil {
+		segments = append(segments, node.GetName())
+		parent := node.GetParent()
+		if parent == nil {
 			break
 		}
+		node = parent
 	}
 	slices.Reverse(segments)
 	return strings.Join(segments, "//")
