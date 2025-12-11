@@ -122,74 +122,81 @@ func buildFS(files []JPkgFileRecordWithOffset) (map[string]jpkgFileOpenerInfo, m
 		},
 	}
 
-	pathToNode := map[string]jpkg_fs.JPkgFSNode{
+	pathsToNodes := map[string]jpkg_fs.JPkgFSNode{
 		"\\": treeRoot.Root,
 	}
 
 	for path := range paths {
-		segments := strings.Split(path, "\\")
-		if len(segments) == 0 || len(segments) == 1 {
-			return nil, nil, fmt.Errorf("malformed path: %v", path)
+		if err := convertPathToNodeTreeBranch(path, treeRoot.Root, pathsToNodes); err != nil {
+			return nil, nil, err
 		}
-		dirSegs := segments[1 : len(segments)-1]
-		lastSeg := segments[len(segments)-1]
-
-		var current jpkg_fs.JPkgFSNode = treeRoot.Root
-
-	outer:
-		for _, seg := range dirSegs {
-			dir, isDir := current.(*jpkg_fs.JPkgFSDirectory)
-			if !isDir {
-				fullPath := jpkg_fs.GetFullPath(current)
-				return nil, nil, fmt.Errorf("path %v is a file but is being used as a directory for %v", fullPath, path)
-			}
-
-			for _, child := range dir.Children {
-				if child.GetName() == seg {
-					current = child
-					continue outer
-				}
-			}
-
-			next := &jpkg_fs.JPkgFSDirectory{
-				Parent:   dir,
-				Name:     seg,
-				Children: nil,
-			}
-			pathToNode[jpkg_fs.GetFullPath(next)] = next
-			dir.Children = append(dir.Children, next)
-			current = next
-		}
-
-		dir, isDir := current.(*jpkg_fs.JPkgFSDirectory)
-		if !isDir {
-			fullPath := jpkg_fs.GetFullPath(current)
-			return nil, nil, fmt.Errorf("path %v is used as a file but is a directory for %v", fullPath, path)
-		}
-
-		for _, child := range dir.Children {
-			if child.GetName() == lastSeg {
-				return nil, nil, fmt.Errorf("filename of path is already in use as either directory or file: %v", path)
-			}
-		}
-
-		file := &jpkg_fs.JPkgFSFile{
-			Parent: dir,
-			Name:   lastSeg,
-		}
-
-		dir.Children = append(dir.Children, file)
-		pathToNode[path] = file
 	}
 
 	fils := map[string]jpkgFileOpenerInfo{}
 	dirs := map[string]jpkgDirOpenerInfo{}
 
-	for path, node := range pathToNode {
+	for path, node := range pathsToNodes {
 		convertNodeToOpenerInfo(node, path, dirs, fils, paths)
 	}
 
 	return fils, dirs, nil
+}
+
+func convertPathToNodeTreeBranch(path string, root jpkg_fs.JPkgFSNode, pathToNode map[string]jpkg_fs.JPkgFSNode) error {
+	segments := strings.Split(path, "\\")
+	if len(segments) == 0 || len(segments) == 1 {
+		return fmt.Errorf("malformed path: %v", path)
+	}
+	dirSegs := segments[1 : len(segments)-1]
+	lastSeg := segments[len(segments)-1]
+
+	current := root
+
+outer:
+	for _, seg := range dirSegs {
+		dir, isDir := current.(*jpkg_fs.JPkgFSDirectory)
+		if !isDir {
+			fullPath := jpkg_fs.GetFullPath(current)
+			return fmt.Errorf("path %v is a file but is being used as a directory for %v", fullPath, path)
+		}
+
+		for _, child := range dir.Children {
+			if child.GetName() == seg {
+				current = child
+				continue outer
+			}
+		}
+
+		next := &jpkg_fs.JPkgFSDirectory{
+			Parent:   dir,
+			Name:     seg,
+			Children: nil,
+		}
+		pathToNode[jpkg_fs.GetFullPath(next)] = next
+		dir.Children = append(dir.Children, next)
+		current = next
+	}
+
+	dir, isDir := current.(*jpkg_fs.JPkgFSDirectory)
+	if !isDir {
+		fullPath := jpkg_fs.GetFullPath(current)
+		return fmt.Errorf("path %v is used as a file but is a directory for %v", fullPath, path)
+	}
+
+	for _, child := range dir.Children {
+		if child.GetName() == lastSeg {
+			return fmt.Errorf("filename of path is already in use as either directory or file: %v", path)
+		}
+	}
+
+	file := &jpkg_fs.JPkgFSFile{
+		Parent: dir,
+		Name:   lastSeg,
+	}
+
+	dir.Children = append(dir.Children, file)
+	pathToNode[path] = file
+	return nil
 }
 
 func convertNodeToOpenerInfo(
