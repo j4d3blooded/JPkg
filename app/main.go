@@ -21,7 +21,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&MODE, "mode", "?", "Package mode (Pack, Unpack)")
+	flag.StringVar(&MODE, "mode", "?", "Package mode (Pack, Unpack, Query)")
 	flag.StringVar(&PACKAGE, "package", ".", "Package to unpack / output too")
 	flag.StringVar(&DIRECTORY, "directory", "package.jpkg", "Directory to pack / output too")
 	flag.Parse()
@@ -34,6 +34,8 @@ func main() {
 		pack()
 	case "unpack":
 		unpack()
+	case "query":
+		query()
 	default:
 		flag.PrintDefaults()
 	}
@@ -46,7 +48,7 @@ func pack() {
 	}
 
 	p := jpkg.NewJPkgEncoder(f)
-
+	p.Name = "Archive"
 	p.Compression = &jpkg_impl.LZWCompressionHandler{}
 
 	fs.WalkDir(
@@ -130,5 +132,25 @@ func unpack() {
 
 			return nil
 		},
+	)
+}
+
+func query() {
+	f, err := os.Open(PACKAGE)
+	if err != nil {
+		panic(fmt.Errorf("error opening package: %w", err))
+	}
+	defer f.Close()
+
+	pkg, err := jpkg.ReadJPkg(f, nil)
+	if err != nil {
+		panic(fmt.Errorf("error reading jpkg: %w", err))
+	}
+
+	cFlag, eFlag := pkg.GetFlagsAndInfo()
+
+	fmt.Printf(
+		"Package Name: %v. File Count: %v. Packaged at: %v. Compressed %v, Encrypted %v\n",
+		pkg.GetName(), pkg.GetPackagedTime(), pkg.GetFileCount(), cFlag != jpkg_impl.COMPRESSION_NONE, eFlag != jpkg_impl.ENCRYPTION_NONE,
 	)
 }

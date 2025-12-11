@@ -18,11 +18,31 @@
 		"version": "0.2.0",
 		"configurations": [
 			{
-				"name": "Launch Package",
+				"name": "Unpack",
 				"type": "go",
 				"request": "launch",
 				"mode": "auto",
-				"program": "${workspaceFolder}/app"
+				"program": "${workspaceFolder}/app",
+				"args": ["-mode", "unpack", "-directory", "./output", "-package", "current.jpkg"],
+				"cwd": "${workspaceFolder}/app",
+			},
+			{
+				"name": "Pack",
+				"type": "go",
+				"request": "launch",
+				"mode": "auto",
+				"program": "${workspaceFolder}/app",
+				"args": ["-mode", "pack", "-directory", "..", "-package", "current.jpkg"],
+				"cwd": "${workspaceFolder}/app",
+			},
+			{
+				"name": "Query",
+				"type": "go",
+				"request": "launch",
+				"mode": "auto",
+				"program": "${workspaceFolder}/app",
+				"args": ["-mode", "query", "-package", "current.jpkg"],
+				"cwd": "${workspaceFolder}/app",
 			}
 		]
 	}

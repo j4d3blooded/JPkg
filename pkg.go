@@ -152,6 +152,18 @@ func (j *JPkg) GetName() string {
 	return j.name
 }
 
+func (j *JPkg) GetPackagedTime() time.Time {
+	return j.packagedAt
+}
+
+func (j *JPkg) GetFlagsAndInfo() (jpkg_impl.CompressionFlag, jpkg_impl.EncryptionFlag) {
+	return j.cHandler.Flag(), j.eHandler.Flag()
+}
+
+func (j *JPkg) GetFileCount() int {
+	return len(j.pathsToFiles)
+}
+
 func GetPackageMetadata[T any](pkg *JPkg) (*T, error) {
 	v := new(T)
 	err := json.Unmarshal(pkg.metadata, v)

@@ -45,11 +45,14 @@ func (n *LZWCompressionHandler) Flag() CompressionFlag {
 }
 
 func (n *LZWCompressionHandler) Decompress(compressed []byte) ([]byte, error) {
-	output := bytes.NewBuffer(compressed)
+	output := bytes.NewReader(compressed)
 	reader := lzw.NewReader(output, lzw.LSB, 8)
 	b, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("error during lzw decompression: %w", err)
+	}
+	if err := reader.Close(); err != nil {
+		return nil, fmt.Errorf("error closing lzw decompression: %w", err)
 	}
 	return b, nil
 }
@@ -60,6 +63,9 @@ func (n *LZWCompressionHandler) Compress(uncompressed []byte) ([]byte, error) {
 	_, err := writer.Write(uncompressed)
 	if err != nil {
 		return nil, fmt.Errorf("error during lzw compression: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("error closing lzw compression: %w", err)
 	}
 	return output.Bytes(), nil
 }
