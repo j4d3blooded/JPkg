@@ -3,9 +3,11 @@ package jpkg
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"regexp"
 	"time"
 
 	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
@@ -159,11 +161,59 @@ func GetPackageMetadata[T any](pkg *JPkg) (*T, error) {
 	return v, nil
 }
 
-func GetFileMetadata[T any](file *JPkgFile) (*T, error) {
-	v := new(T)
-	err := json.Unmarshal(file.metadata, v)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing file metadata: %w", err)
+func (j *JPkg) GetByUUID(uuid UUID) (*JPkgFile, error) {
+	for _, file := range j.pathsToFiles {
+		if file.uuid == uuid {
+			f, err := j.Open(file.path)
+			if err != nil {
+				return nil, fmt.Errorf("error opening found: %w", err)
+			}
+			return f.(*JPkgFile), nil
+		}
 	}
-	return v, nil
+	return nil, errors.New("uuid not found")
+}
+
+func (j *JPkg) GetByIdentifier(expr *regexp.Regexp) ([]*JPkgFile, error) {
+	files := []*JPkgFile{}
+
+	for _, file := range j.pathsToFiles {
+		if expr.MatchString(file.identifier) {
+			file, err := j.Open(file.path)
+			if err != nil {
+				return nil, fmt.Errorf("error opening matched file: %w", err)
+			}
+			files = append(files, file.(*JPkgFile))
+		}
+	}
+
+	return files, nil
+}
+
+func GetByMetadataQuery[T any](j *JPkg, query func(md T) bool) ([]*JPkgFile, error) {
+	files := []*JPkgFile{}
+
+	for _, file := range j.pathsToFiles {
+		metadata := new(T)
+		if err := json.Unmarshal(file.metadata, metadata); err != nil {
+			return nil, fmt.Errorf("error parsing file metadata: %w", err)
+		}
+		if query(*metadata) {
+			file, err := j.Open(file.path)
+			if err != nil {
+				return nil, fmt.Errorf("error opening matched file: %w", err)
+			}
+			files = append(files, file.(*JPkgFile))
+		}
+	}
+
+	return files, nil
+}
+
+func (j *JPkg) GetByPath(path string) (*JPkgFile, error) {
+	f, err := j.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return f.(*JPkgFile), nil
 }

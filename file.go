@@ -2,6 +2,8 @@ package jpkg
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"time"
 )
@@ -68,4 +70,13 @@ func (j *JPkgFile) Close() error {
 
 func (j *JPkgFile) Sys() any {
 	return nil
+}
+
+func GetFileMetadata[T any](file *JPkgFile) (*T, error) {
+	v := new(T)
+	err := json.Unmarshal(file.metadata, v)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing file metadata: %w", err)
+	}
+	return v, nil
 }
