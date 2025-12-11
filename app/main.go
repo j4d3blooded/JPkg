@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/j4d3blooded/jpkg"
-	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
+	jpkg "github.com/j4d3blooded/JPkg"
+	jpkg_impl "github.com/j4d3blooded/JPkg/impl"
 )
 
 var (

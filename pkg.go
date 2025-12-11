@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"time"
 
-	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
+	jpkg_impl "github.com/j4d3blooded/JPkg/impl"
 )
 
 type JPkgHeader struct {

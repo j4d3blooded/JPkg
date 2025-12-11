@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	jpkg_bin "github.com/j4d3blooded/jpkg/bin"
-	jpkg_fs "github.com/j4d3blooded/jpkg/fs"
-	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
+	jpkg_bin "github.com/j4d3blooded/JPkg/bin"
+	jpkg_fs "github.com/j4d3blooded/JPkg/fs"
+	jpkg_impl "github.com/j4d3blooded/JPkg/impl"
 )
 
 func ReadJPkg(r io.ReadSeeker, encryptionKey []byte) (*JPkg, error) {

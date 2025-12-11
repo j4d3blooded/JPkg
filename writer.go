@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	jpkg_bin "github.com/j4d3blooded/jpkg/bin"
-	jpkg_impl "github.com/j4d3blooded/jpkg/impl"
+	jpkg_bin "github.com/j4d3blooded/JPkg/bin"
+	jpkg_impl "github.com/j4d3blooded/JPkg/impl"
 )
 
 func NewJPkgEncoder(w io.Writer) *JPkgEncoder {
