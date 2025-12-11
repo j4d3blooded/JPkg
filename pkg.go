@@ -150,11 +150,20 @@ func (j *JPkg) GetName() string {
 	return j.name
 }
 
-func GetMetadata[T any](pkg *JPkg) (*T, error) {
+func GetPackageMetadata[T any](pkg *JPkg) (*T, error) {
 	v := new(T)
 	err := json.Unmarshal(pkg.metadata, v)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing package metadata: %w", err)
+	}
+	return v, nil
+}
+
+func GetFileMetadata[T any](file *JPkgFile) (*T, error) {
+	v := new(T)
+	err := json.Unmarshal(file.metadata, v)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing file metadata: %w", err)
 	}
 	return v, nil
 }

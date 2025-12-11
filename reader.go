@@ -186,35 +186,44 @@ func buildFS(files []JPkgFileRecordWithOffset) (map[string]jpkgFileOpenerInfo, m
 	dirs := map[string]jpkgDirOpenerInfo{}
 
 	for path, node := range pathToNode {
-		switch f := node.(type) {
-		case *jpkg_fs.JPkgFSDirectory:
-
-			childPaths := make([]string, len(f.Children))
-			for i, v := range f.Children {
-				childPaths[i] = jpkg_fs.GetFullPath(v)
-			}
-
-			dirs[path] = jpkgDirOpenerInfo{
-				name:       f.Name,
-				path:       jpkg_fs.GetFullPath(f),
-				ChildPaths: childPaths,
-			}
-
-		case *jpkg_fs.JPkgFSFile:
-			fils[path] = jpkgFileOpenerInfo{
-				name:             f.Name,
-				compressedSize:   paths[path].CompressedDataSize,
-				uncompressedSize: paths[path].UncompressedDataSize,
-				path:             paths[path].FilePath,
-				identifier:       paths[path].FileIdentifier,
-				uuid:             paths[path].UUID,
-				offset:           int64(paths[path].Offset),
-			}
-
-		default:
-			panic("unsupported fs node type")
-		}
+		convertNodeToOpenerInfo(node, path, dirs, fils, paths)
 	}
 
 	return fils, dirs, nil
+}
+
+func convertNodeToOpenerInfo(
+	node jpkg_fs.JPkgFSNode, path string,
+	directories map[string]jpkgDirOpenerInfo, files map[string]jpkgFileOpenerInfo,
+	paths map[string]JPkgFileRecordWithOffset,
+) {
+	switch f := node.(type) {
+	case *jpkg_fs.JPkgFSDirectory:
+
+		childPaths := make([]string, len(f.Children))
+		for i, v := range f.Children {
+			childPaths[i] = jpkg_fs.GetFullPath(v)
+		}
+
+		directories[path] = jpkgDirOpenerInfo{
+			name:       f.Name,
+			path:       jpkg_fs.GetFullPath(f),
+			ChildPaths: childPaths,
+		}
+
+	case *jpkg_fs.JPkgFSFile:
+		files[path] = jpkgFileOpenerInfo{
+			name:             f.Name,
+			compressedSize:   paths[path].CompressedDataSize,
+			uncompressedSize: paths[path].UncompressedDataSize,
+			path:             paths[path].FilePath,
+			identifier:       paths[path].FileIdentifier,
+			uuid:             paths[path].UUID,
+			offset:           int64(paths[path].Offset),
+			metadata:         []byte(paths[path].FileMetadataJSON),
+		}
+
+	default:
+		panic("unsupported fs node type")
+	}
 }

@@ -14,6 +14,7 @@ type jpkgFileOpenerInfo struct {
 	compressedSize   uint64
 	uncompressedSize uint64
 	offset           int64
+	metadata         []byte
 }
 
 type JPkgFile struct {
@@ -23,6 +24,7 @@ type JPkgFile struct {
 	identifier string
 	uuid       UUID
 	size       int64
+	metadata   []byte
 	buffer     bytes.Reader
 	closed     bool
 }
