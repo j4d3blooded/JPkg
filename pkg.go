@@ -96,6 +96,7 @@ func (j *JPkg) Open(name string) (fs.File, error) {
 			path:       fileInfo.path,
 			identifier: fileInfo.identifier,
 			uuid:       fileInfo.uuid,
+			metadata:   fileInfo.metadata,
 		}, nil
 	}
 
