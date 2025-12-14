@@ -50,5 +50,6 @@ func normalizeFilePath(name string) string {
 	}
 
 	name = filepath.Clean(name)
+	name = strings.ReplaceAll(name, "/", "\\")
 	return name
 }

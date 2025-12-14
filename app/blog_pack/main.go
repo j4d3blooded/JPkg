@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	jpkg "github.com/j4d3blooded/JPkg"
 )
@@ -53,14 +57,25 @@ func main() {
 				return
 			}
 
+			blogpostMetadata := BlogPostMetadata{
+				LastModified: info.ModTime(),
+			}
+
+			metadataFile := strings.TrimSuffix(match, filepath.Ext(match)) + ".json"
+
+			if data, err := os.ReadFile(metadataFile); err == nil {
+				if err := json.Unmarshal(data, &blogpostMetadata); err != nil {
+					fmt.Printf("Error unmarshaling metadata file for %v: %v\n", match, err)
+				}
+				fmt.Printf("Using metadata file for %v\n", match)
+			}
+
 			file := jpkg.JPkgFileToEncode{
 				Source:     matchedFile,
 				UUID:       jpkg.NewUUIDV4(),
 				Identifier: "",
 				Path:       match,
-				Metadata: BlogPostMetadata{
-					LastModified: info.ModTime().Unix(),
-				},
+				Metadata:   blogpostMetadata,
 			}
 
 			if err := pkgBuilder.AddFile(file); err != nil {
@@ -77,5 +92,5 @@ func main() {
 }
 
 type BlogPostMetadata struct {
-	LastModified int64
+	LastModified time.Time
 }
